@@ -10,16 +10,39 @@ T = np.array([[0, 0, -1, 0.1],
 
 
 # number of data points for training
-N = 4
+N = 6
 
 # define a dataset of xi_vectors with points rho and rotations phi
-xi = np.empty([N,6])
+#xi = np.empty([N,6])
+xi_0 = np.array([0.0,0.0,0.0,0.0,0.0,0.0])
+xi_1 = np.array([1.0,1.0,0.0,0.0,0.0,0.0])
+xi_2 = np.array([2.0,2.0,0.0,0.0,0.0,0.0])
+xi_3 = np.array([3.0,3.0,0.0,0.0,0.0,0.0])
+xi_4 = np.array([4.0,4.0,0.0,0.0,0.0,0.0])
+xi_5 = np.array([5.0,5.0,0.0,0.0,0.0,0.0])
+xi = np.vstack((xi_0, xi_1, xi_2, xi_3, xi_4, xi_5))
 
-w_bar = np.empty([N,6])
+#w_bar = np.empty([N,6])
+
+w_bar_0 = np.array([1.0,1.0,1.0,0.0,0.0,0.0]) 
+w_bar_1 = np.array([2.0,2.0,2.0,0.0,0.0,0.0]) 
+w_bar_2 = np.array([1.0,1.0,1.0,0.0,0.0,0.0]) 
+w_bar_3 = np.array([1.0,3.0,1.0,0.0,0.0,0.0]) 
+w_bar_4 = np.array([1.0,1.0,4.0,0.0,0.0,0.0])
+w_bar_5 = np.array([1.0,1.0,2.0,0.0,0.0,0.0])
+
+w_bar = np.vstack((w_bar_0, w_bar_1, w_bar_2, w_bar_3, w_bar_4, w_bar_5))
+
 
 # define a dataset of time values
 t = np.empty([N,1])
- 
+
+t[0,0] = 0.0
+t[1,0] = 1.0
+t[2,0] = 2.0
+t[3,0] = 3.0
+t[4,0] = 4.0
+t[5,0] = 5.0
 
 # xi are lists of 6 real-valued entries
 
@@ -42,12 +65,12 @@ def error_i(xi_i, xi_ip1,w_bar_i,w_bar_ip1):
 def error_ij():
     # define later in case of measurement-based model
 
-def Q_i(Q_C,t_i,t_im1):
+def Q_i(t_i,t_im1,dim):
 
     delta_t_i = t_i - t_im1
 
-    return np.array([(1/3)*((delta_t_i)**3)*Q_C, (1/2)*((delta_t_i)**2)*Q_C;
-                     (1/2)*((delta_t_i)**2)*Q_C, (delta_t_i)*Q_C])
+    return np.array([(1/3)*((delta_t_i)**3)*Q_C(dim), (1/2)*((delta_t_i)**2)*Q_C(dim);
+                     (1/2)*((delta_t_i)**2)*Q_C(dim), (delta_t_i)*Q_C(dim)])
 
 
 
@@ -99,35 +122,49 @@ def J(xi, w_bar, N, Q_C, t):
 
 # implementation of E:
 
-def E():
+def F(k):
     
-    F_k = np.empty([4,2])
+    F = np.empty([24,12])
 
-    k = 0
-
-    dim = 3
+    dim = 6
 
     T_kp1 = SE3.exp(xi[k+1])
     T_k = SE3.exp(xi[k])
 
-    tau_bar = (SE3.exp([xi[k+1]]).dot(SE3.exp([xi[k]]))).adjoint()
+    tau_bar_kp1_k = (SE3.exp([xi[k+1]]).dot(SE3.exp([xi[k]]))).adjoint()
 
-    SE3.exp
+    # lie jacobian is 6x6
+    # xi is 6x1
+    # T is element 4x4
+    # Ad(T)=curly T is element 6x6
+
+
+    F_k00 = SE3.inv_left_jacobian(T_kp1.dot(T_k)).dot(tau_bar_kp1_k)
+    F_k10 = (1/2)*w_bar(v_kp1,omega_kp1).dot(SE3.inv_left_jacobian(T_kp1.dot(T_k))).dot(tau_bar_kp1_k):
+    F_k01 = (t_kp1-tk)*np.eye(dim) 
+    F_k11 = np.eye(dim)
+    F_k02 = -SE3.inv_left_jacobian(T_kp1.dot(T_k))
+    F_k12 = (-1/2)*SE3.vee(w_bar(v_kp1,omega_kp1)).dot(SE3.inv_left_jacobian(T_kp1.dot(T_k)))
+    F_k03 = np.zeros(dim)
+    F_k13 = -SE3.inv_left_jacobian(T_kp1.dot(T_k))
+
+    F_0 = np.block([F_k00, F_k01, F_k02, F_k03])
+    F_1 = np.block([F_k10, F_k11, F_k12, F_k13])
 
 
 
-    F_k[0,0] = SE3.inv_left_jacobian(T_kp1.dot(T_k)).dot(tau_bar_kp1_k)
+    F = np.block(([F_0],[F_1]))
 
-    F_k[1,0] = (1/2)*w_bar(v_kp1,omega_kp1).dot(SE3.inv_left_jacobian(T_kp1.dot(T_k))).dot(tau_bar_kp1_k):
+    return F
 
-    F_k[0,1] = (t_kp1-tk)*np.eye(dim) 
-    F_k[1,1] = np.eye(dim)
-    F_k[0,2] = -SE3.inv_left_jacobian(T_kp1.dot(T_k))
-    F_k[1,2] = (-1/2)*SE3.vee(w_bar(v_kp1,omega_kp1)).dot(SE3.inv_left_jacobian(T_kp1.dot(T_k)))
-    F_k[0,3] = np.zeros(dim)
-    F_k[1,3] = -SE3.inv_left_jacobian(T_kp1.dot(T_k))
 
-    P = np.empty([2,1])
+def A_pri(idx):
+    dim = 6
+    np.transpose(F(t[idx])).dot(np.linalg.inv(Q_i(idx,idx-1,dim)).dot(F(t[idx])))
+
+def b_pri(idx):
+    np.transpose(F(t[idx])).dot(np.linalg.inv(Q_i(idx,idx-1,dim)).dot(error_i(xi[idx,:], xi[idx+1,:],w_bar[idx,:],w_bar[idx+1,:])))
+
 
 
 
