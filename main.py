@@ -7,6 +7,8 @@ T = np.array([[0, 0, -1, 0.1],
                   [1, 0, 0, -0.5],
                   [0, 0, 0, 1]])
 
+
+
 # number of data points for training
 N = 4
 
@@ -127,6 +129,17 @@ def epsilon():
         delta.append(delta_i(theta[i], psi[i]))
     
     return epsilon
+
+
+
+from pyslam.problem import Problem, Options
+
+options = Options()
+options.print_summary = True
+
+problem = Problem(options)
+
+
 
 
 
