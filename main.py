@@ -95,6 +95,43 @@ def J(xi, w_bar, N, Q_C, t):
 
 #system_to_solve 
 
+
+
+# implementation of E:
+
+def E():
+    
+    F_k = np.empty([4,2])
+
+    k = 0
+
+    dim = 3
+
+    T_kp1 = SE3.exp(xi[k+1])
+    T_k = SE3.exp(xi[k])
+
+    tau_bar = (SE3.exp([xi[k+1]]).dot(SE3.exp([xi[k]]))).adjoint()
+
+    SE3.exp
+
+
+
+    F_k[0,0] = SE3.inv_left_jacobian(T_kp1.dot(T_k)).dot(tau_bar_kp1_k)
+
+    F_k[1,0] = (1/2)*w_bar(v_kp1,omega_kp1).dot(SE3.inv_left_jacobian(T_kp1.dot(T_k))).dot(tau_bar_kp1_k):
+
+    F_k[0,1] = (t_kp1-tk)*np.eye(dim) 
+    F_k[1,1] = np.eye(dim)
+    F_k[0,2] = -SE3.inv_left_jacobian(T_kp1.dot(T_k))
+    F_k[1,2] = (-1/2)*SE3.vee(w_bar(v_kp1,omega_kp1)).dot(SE3.inv_left_jacobian(T_kp1.dot(T_k)))
+    F_k[0,3] = np.zeros(dim)
+    F_k[1,3] = -SE3.inv_left_jacobian(T_kp1.dot(T_k))
+
+    P = np.empty([2,1])
+
+
+
+
 """
 
 perturbation: epsilon*
