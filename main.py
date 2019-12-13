@@ -38,7 +38,7 @@ w_bar = [w_bar_0, w_bar_1, w_bar_2, w_bar_3, w_bar_4, w_bar_5]
 w_bar_est_init = np.array([1.0,1.0,1.0,0.0,0.0,0.0]) 
 w_bar_est = w_bar_est_init
 
-w_bar_mean = np.array([1.0,0.0,0.0,0.0,0.0,0.0]) 
+w_bar_mean = np.array([1.0,1.0,1.0,0.0,0.0,0.0]) 
 
 T = [SE3.exp(xi_0),SE3.exp(xi_1),SE3.exp(xi_2),SE3.exp(xi_3),SE3.exp(xi_4),SE3.exp(xi_5)]
 
@@ -50,7 +50,6 @@ t = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
 
 # xi are lists of 6 real-valued entries
 
-haha1 = SE3.curlywedge(w_bar_mean)
 
 def Q_C(dim):
     return np.identity(dim)
@@ -216,5 +215,46 @@ A = np.dot(np.transpose(F_inv(5,w_bar)),np.dot(prod2,F_inv(5,w_bar)))
 #solve the cost-function equation-system
 
 
-dx = np.dot(np.linalg.inv(A),b)
+maxits = 100
+i = 0
+K = 5
 
+T_outcome = []
+    
+while (i < maxits):
+    
+    # calculate A and b
+    prod1 = np.transpose(F_inv(5,w_bar))
+    prod2 = np.linalg.inv(Q(5,t,w_bar_mean, 6))
+    prod3 = e_v(T_est,w_bar,w_bar_op,5)
+    
+    
+    prod4 = np.dot(prod2,prod3)
+    
+    print("dims of prods")
+    print(prod1.shape)
+    print(prod2.shape)
+    print(prod3.shape)
+    print(prod4.shape)
+    
+    b = np.dot(prod1,prod4)
+    A = np.dot(np.transpose(F_inv(5,w_bar)),np.dot(prod2,F_inv(5,w_bar)))
+    
+    # calculate correction through matrix inversion dx=A(^-1)b
+    dx = np.dot(np.linalg.inv(A),b)
+    
+    for k in range(0,K+1):
+        T_est[k] = SE3.exp(dx[k*12:k*12+6]).dot(T_est[k])
+        w_bar[k] = w_bar[k] + dx[k*12+6:k*12+12]
+        
+        if k==1:
+            T_outcome.append(SE3.log(T_est[k]))
+        
+        
+    i = i + 1
+    
+        
+# transform the estimated SE3 groups back to Euclidean space
+points = []
+for entry in T_est:
+    points.append(SE3.log(entry))
