@@ -2,10 +2,12 @@ from liegroups.numpy import SE3
 
 import numpy as np
 
+"""
 T = np.array([[0, 0, -1, 0.1],
                   [0, 1, 0, 0.5],
                   [1, 0, 0, -0.5],
                   [0, 0, 0, 1]])
+"""
 
 
 
@@ -20,7 +22,7 @@ xi_2 = np.array([2.0,2.0,0.0,0.0,0.0,0.0])
 xi_3 = np.array([3.0,3.0,0.0,0.0,0.0,0.0])
 xi_4 = np.array([4.0,4.0,0.0,0.0,0.0,0.0])
 xi_5 = np.array([5.0,5.0,0.0,0.0,0.0,0.0])
-xi = np.vstack((xi_0, xi_1, xi_2, xi_3, xi_4, xi_5))
+xi = [xi_0, xi_1, xi_2, xi_3, xi_4, xi_5]
 
 #w_bar = np.empty([N,6])
 
@@ -31,275 +33,188 @@ w_bar_3 = np.array([1.0,3.0,1.0,0.0,0.0,0.0])
 w_bar_4 = np.array([1.0,1.0,4.0,0.0,0.0,0.0])
 w_bar_5 = np.array([1.0,1.0,2.0,0.0,0.0,0.0])
 
-w_bar = np.vstack((w_bar_0, w_bar_1, w_bar_2, w_bar_3, w_bar_4, w_bar_5))
+w_bar = [w_bar_0, w_bar_1, w_bar_2, w_bar_3, w_bar_4, w_bar_5]
 
+w_bar_est_init = np.array([1.0,1.0,1.0,0.0,0.0,0.0]) 
+w_bar_est = w_bar_est_init
+
+w_bar_mean = np.array([1.0,0.0,0.0,0.0,0.0,0.0]) 
+
+T = [SE3.exp(xi_0),SE3.exp(xi_1),SE3.exp(xi_2),SE3.exp(xi_3),SE3.exp(xi_4),SE3.exp(xi_5)]
+
+#T_test = SE3.exp(xi_1) 
+#test = SE3.log(T)
 
 # define a dataset of time values
-t = np.empty([N,1])
-
-t[0,0] = 0.0
-t[1,0] = 1.0
-t[2,0] = 2.0
-t[3,0] = 3.0
-t[4,0] = 4.0
-t[5,0] = 5.0
+t = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
 
 # xi are lists of 6 real-valued entries
 
-def w_bar(v,omega):
-    return np.array([v[0],v[1],v[2], omega[0],omega[1],omega[2]])
-
-def error_i(xi_i, xi_ip1,w_bar_i,w_bar_ip1):
-
-    T_i = SE3.exp(xi_i)
-    T_ip1 = SE3.exp(xi_ip1)
-
-    e_i1 = SE3.vee(SE3.log(T_ip1.dot(T_i.inv())))
-            - (t_ip1-t_i)*w_bar_i
-
-    e_i2 = SE3.inv_left_jacobian(SE3.vee(SE3.log(T_ip1.dot(T_i.inv()))))*w_bar_ip1 - w_bar_i
-
-    return np.vstack = [e_i1, e_i2]
-
-
-def error_ij():
-    # define later in case of measurement-based model
-
-def Q_i(t_i,t_im1,dim):
-
-    delta_t_i = t_i - t_im1
-
-    return np.array([(1/3)*((delta_t_i)**3)*Q_C(dim), (1/2)*((delta_t_i)**2)*Q_C(dim);
-                     (1/2)*((delta_t_i)**2)*Q_C(dim), (delta_t_i)*Q_C(dim)])
-
-
-
-# TODO
-"""
-    DONE
-    setup xi and t data containers
-    defined the cost function structure
-    come up with matrix Q_C
-    
-    #TODO
-    do some research on the gauss-newton algorithm
-    define dataset xi above
-    define w_bar dataset above (lin and rotational velocity)
-
-"""
+haha1 = SE3.curlywedge(w_bar_mean)
 
 def Q_C(dim):
-    return np.eye(dim)
+    return np.identity(dim)
 
 
-
-def J(xi, w_bar, N, Q_C, t):
-
-    # create error vector
-        # fill up error vector with all training data
-    e = np.empty([N,1])
-
-    for i in range(N):
-        e.append(error_i(xi[i], xi[i+1],w_bar[i],w_bar[i+1]))
-
-    # create Q matrix and invert it
+def Phi(w_bar,t,t_km1):
     
-    # create a vector of all Q_i entries
-    Q_vect = np.empty([N,1])
-
-    for i in range(N):
-        Q_vect.append(Q_i(Q_C(6),t[i],t[i-1]))
+    #eq10.22
     
-    Q = np.diag(Q_vect)
+    matrix00 = np.identity(6) + (t-t_km1) * SE3.curlywedge(w_bar_mean)
+    matrix01 = (t-t_km1) * np.identity(6) + (1/2)*((t-t_km1)**(2)) * SE3.curlywedge(w_bar_mean)
+    matrix10 = np.zeros((6,6))
+    matrix11 = np.identity(6)
 
-    Q_inv = np.linalg.inv(Q)
-
-    return (1/2)*np.matmul(np.matmul(np.tranpose(e),Q_inv),e)
-
-#system_to_solve 
-
-
-
-# implementation of E:
-
-def F(k):
+    matrix0 = np.block([matrix00, matrix01])
+    print(matrix0.shape)
+    matrix1 = np.block([matrix10, matrix11])
+    print(matrix1.shape)
     
-    F = np.empty([24,12])
+    matrix = np.concatenate((matrix0,matrix1))
+    print(str(matrix.shape) + "dim of phi")
+    return matrix #np 12x12 array
 
-    dim = 6
-
-    T_kp1 = SE3.exp(xi[k+1])
-    T_k = SE3.exp(xi[k])
-
-    tau_bar_kp1_k = (SE3.exp([xi[k+1]]).dot(SE3.exp([xi[k]]))).adjoint()
-
-    # lie jacobian is 6x6
-    # xi is 6x1
-    # T is element 4x4
-    # Ad(T)=curly T is element 6x6
-
-
-    F_k00 = SE3.inv_left_jacobian(T_kp1.dot(T_k)).dot(tau_bar_kp1_k)
-    F_k10 = (1/2)*w_bar(v_kp1,omega_kp1).dot(SE3.inv_left_jacobian(T_kp1.dot(T_k))).dot(tau_bar_kp1_k):
-    F_k01 = (t_kp1-tk)*np.eye(dim) 
-    F_k11 = np.eye(dim)
-    F_k02 = -SE3.inv_left_jacobian(T_kp1.dot(T_k))
-    F_k12 = (-1/2)*SE3.vee(w_bar(v_kp1,omega_kp1)).dot(SE3.inv_left_jacobian(T_kp1.dot(T_k)))
-    F_k03 = np.zeros(dim)
-    F_k13 = -SE3.inv_left_jacobian(T_kp1.dot(T_k))
-
-    F_0 = np.block([F_k00, F_k01, F_k02, F_k03])
-    F_1 = np.block([F_k10, F_k11, F_k12, F_k13])
-
-
-
-    F = np.block(([F_0],[F_1]))
-
-    return F
-
-
-def A_pri(idx):
-    dim = 6
-    np.transpose(F(t[idx])).dot(np.linalg.inv(Q_i(idx,idx-1,dim)).dot(F(t[idx])))
-
-def b_pri(idx):
-    np.transpose(F(t[idx])).dot(np.linalg.inv(Q_i(idx,idx-1,dim)).dot(error_i(xi[idx,:], xi[idx+1,:],w_bar[idx,:],w_bar[idx+1,:])))
-
-
-
-
-
-"""
-
-perturbation: epsilon*
-
-initial pose: identity transform
-
-
-per iteration we update: x_op <- x_op + delta_x_op
-
-
-T_i = 
-
-"""
-xi_init = np.array([0,0,0,0,0,0])
-T_init = T_i = SE3.exp(xi_init)
-
-v_init = np.array([0.5, 0.5, 0.5])
-omega_init = np.array([0.0, 0.0, 0.0])
-w_bar_init = w_bar(v_init, omega_init)
-
-e_op_init = error_i(xi_init, xi[0], w_bar_init, w_bar[0])
-
-
-error_i(xi_i, xi_ip1,w_bar_i,w_bar_ip1):
-
-def delta_i(theta_i,psi_i):
-    return np.array([theta_i, psi_i]) 
-
-def epsilon():
-    delta = np.empty([N,1])
-    for i in range(N):
-        delta.append(delta_i(theta[i], psi[i]))
     
-    return epsilon
 
 
 
-from pyslam.problem import Problem, Options
-
-options = Options()
-options.print_summary = True
-
-problem = Problem(options)
-
-
-
-
-
-
-def residuals(self, b):
-    """Evaluate the residuals f(x, b) - y with the given parameters.
-    Parameters
-    ----------
-    b : tuple, list or ndarray
-        Values for the model parameters.
-    Return
-    ------
-    out : ndarray
-        Residual vector for the given model parameters.
-    """
-    x, y = self.xvals, self.yvals
-    return self._numexpr(x, *b) - y
-
-
-
-
-
-def jacobian(self, b):
+def Q_k(k,t,w_bar_mean,dim):
     
-    """Evaluate the model's Jacobian matrix with the given parameters.
-    Parameters
-    ----------
-    b : tuple, list or ndarray
-        Values for the model parameters.
-    Return
-    ------
-    out : ndarray
-        Evaluation of the model's Jacobian matrix in column-major order wrt
-        the model parameters.
-    """
+    # equation 10.24a
     
-    # Substitute parameters in partial derivatives
-    subs = [pd.subs(zip(self._b, b)) for pd in self._pderivs]
-    # Evaluate substituted partial derivatives for all x-values
-    vals = [sp.lambdify(self._x, sub, "numpy")(self.xvals) for sub in subs]
-    # Arrange values in column-major order
-    return np.column_stack(vals)
+    #return np.array([(1/3)*((delta_t_i)**3)*Q_C(dim), (1/2)*((delta_t_i)**2)*Q_C(dim),
+    #                (1/2)*((delta_t_i)**2)*Q_C(dim), (delta_t_i)*Q_C(dim)])
 
-
-
-
-def gauss_newton(sys, x0, tol = 1e-10, maxits = 256):
+    delta_t = t[k] - t[k-1]
     
-    """Gauss-Newton algorithm for solving nonlinear least squares problems.
-    Parameters
-    ----------
-    sys : Dataset
-        Class providing residuals() and jacobian() functions. The former should
-        evaluate the residuals of a nonlinear system for a given set of
-        parameters. The latter should evaluate the Jacobian matrix of said
-        system for the same parameters.
-    x0 : tuple, list or ndarray
-        Initial guesses or starting estimates for the system.
-    tol : float
-        Tolerance threshold. The problem is considered solved when this value
-        becomes smaller than the magnitude of the correction vector.
-        Defaults to 1e-10.
-    maxits : int
-        Maximum number of iterations of the algorithm to perform.
-        Defaults to 256.
-    Return
-    ------
-    sol : ndarray
-        Resultant values.
-    its : int
-        Number of iterations performed.
-    Note
-    ----
-    Uses numpy.linalg.pinv() in place of similar functions from scipy, both
-    because it was found to be faster and to eliminate the extra dependency.
-    """
+    #w_bark = w_bar[k]
+
+    Q_k11 = (1/3)*(delta_t**(3))*Q_C(dim) \
+            + (1/8)*(delta_t**(4))*(np.dot(SE3.curlywedge(w_bar_mean),Q_C(dim)) + np.dot(Q_C(dim),np.transpose(SE3.curlywedge(w_bar_mean)))) \
+             + (1/20)*(delta_t**(5))*np.dot(SE3.curlywedge(w_bar_mean), np.dot(Q_C(dim),np.transpose(SE3.curlywedge(w_bar_mean))))
+    
+    Q_k12 = (1/2)*(delta_t**(2))*Q_C(dim) + (1/6)*(delta_t**(3))*np.dot(SE3.curlywedge(w_bar_mean),Q_C(dim))
+    Q_k22 = (delta_t**(1))*Q_C(dim)
+    
+    row0 = np.block([Q_k11, Q_k12])
+    print("Q_k: row0 shape")
+    print(row0.shape)
+    
+    print("Q_k: row1 shape")
+    row1 = np.block([np.transpose(Q_k12), Q_k22])
+    print(row1.shape)
+    
+    Q_k_matrix = np.concatenate((row0,row1))
+    print("Q_k: Q_k shape")
+    print(Q_k_matrix.shape)
+    
+    return Q_k_matrix
+    
+    
+
+def F_inv(K,w_bar):
+    #eq10.17
+    F_inv = np.identity((K+1)*12)
+    for k in range(K):
+        F_inv[(k+1)*12:12+(k+1)*12 , k*12:12+k*12] = -Phi(w_bar[k],k+1,k)
+        
+    return F_inv # returns ((K+1)*12,(K+1)*12)-np array
 
 
-    dx = np.ones(len(x0))   # Correction vector
-    xn = np.array(x0)       # Approximation of solution
+T_op = SE3.exp(xi_0)
+w_bar_op = w_bar_0
+T_est = [T_op,T_op,T_op,T_op,T_op,T_op]
 
-    i = 0
-    while (i < maxits) and (dx[dx > tol].size > 0):
-        # correction = pinv(jacobian) . residual vector
-        dx  = np.dot(np.linalg.pinv(sys.jacobian(xn)), -sys.residuals(xn))
-        xn += dx            # x_{n + 1} = x_n + dx_n
-        i  += 1
 
-    return xn, i
+def e_v(T_est,w_bar, w_bar_est,K):
+    
+    # vee turns SE3 back into se3
+    
+    #eq 10.7
+
+    e_v0_0 = SE3.log(SE3.exp(xi[0]).dot(T_est[0].inv()))
+    e_v0_1 = w_bar[0] - w_bar_est
+    
+    e_v0 = -np.concatenate((e_v0_0, e_v0_1))
+    print(str(e_v0.shape) + "dim of e_v0")
+    
+    e_v = e_v0
+    
+    for k in range(1,K+1):
+        
+        T_k = SE3.exp(xi[k])
+        T_km1 = SE3.exp(xi[k-1])
+        
+        bracket1_0 = SE3.log(T_km1.dot((T_est[k-1]).inv()))
+        bracket1_1 = w_bar[k-1] - w_bar_est
+        #print (bracket1_0.shape)
+        #print (bracket1_1.shape)
+        
+        bracket1 = np.concatenate((bracket1_0,bracket1_1))
+        #print (bracket1.shape)
+        
+        bracket2_0 = SE3.log(T[k].dot((T_est[k]).inv()))
+        bracket2_1 = w_bar[k] - w_bar_est
+        #print (bracket2_0.shape)
+        #print (bracket2_1.shape)
+        
+        bracket2 = np.concatenate((bracket2_0,bracket2_1))
+        #print (bracket1.shape)
+        
+        e_vk = np.dot(Phi(w_bar[k],t[k],t[k-1]),bracket1) - bracket2
+        
+        print(str(e_vk.shape) + "dim of e_vk")
+        print(str(e_v.shape) + "dim of e_v")
+        
+        
+        e_v = np.concatenate((e_v,e_vk))
+    
+    print(str(e_v.shape) +  "dim of e_v")
+    
+    return e_v
+
+
+#Q = np.diag(np.diag(np.identity(60)))
+
+
+def Q(K,t,w_bar_mean,dim):
+
+    matrix = np.empty([K*12+12,K*12+12])
+    matrix[0:12,0:12] = np.identity(12)
+    for k in range(1,K):
+        matrix[k*12:k*12+12, k*12:k*12+12] = Q_k(k,t,w_bar_mean,dim)
+        
+    print("final Q shape")
+    print(matrix.shape)
+    return matrix #(K*12+12,K*12+12)-np array
+
+#test_2 = SE3.log(SE3.exp(xi[0]).dot(T_est[0].inv()))
+
+
+test_e_v = e_v(T_est,w_bar, w_bar_op,5)
+
+
+
+# eq 10.35
+prod1 = np.transpose(F_inv(5,w_bar))
+prod2 = np.linalg.inv(Q(5,t,w_bar_mean, 6))
+prod3 = e_v(T_est,w_bar,w_bar_op,5)
+
+
+prod4 = np.dot(prod2,prod3)
+
+print("dims of prods")
+print(prod1.shape)
+print(prod2.shape)
+print(prod3.shape)
+print(prod4.shape)
+
+b = np.dot(prod1,prod4)
+
+A = np.dot(np.transpose(F_inv(5,w_bar)),np.dot(prod2,F_inv(5,w_bar)))
+
+#solve the cost-function equation-system
+
+
+dx = np.dot(np.linalg.inv(A),b)
+
